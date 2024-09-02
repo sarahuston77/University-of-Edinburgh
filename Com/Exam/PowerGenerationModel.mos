@@ -1,0 +1,103 @@
+model PowerGeneration
+uses "mmxprs"
+
+! Declare all variables
+declarations
+  Generators:           set of string
+  Pollutants:           set of string
+  Cost:                 array(Generators) of real
+  Output:               array(Generators) of real
+  Emissions:            array(Pollutants, Generators) of real
+  EmissionLimit:        array(Pollutants) of real
+  EnergyDemand:         real
+  GeneratingHoursLimit: array(Generators) of real
+  Modes:                array(Generators) of mpvar
+end-declarations
+
+! Pull variables from dat. file
+initialisations from "MPower.dat"
+  Generators Pollutants Cost Output Emissions EmissionLimit EnergyDemand GeneratingHoursLimit
+end-initialisations
+
+! Set up objective
+TotalCost := sum(g in Generators)Modes(g)*Cost(g)
+
+! Set up various constraints
+forall(p in Pollutants) do
+  Emission(p) := sum(g in Generators)Modes(g)*Emissions(p, g)
+  EmissionCS(p) := Emission(p) <= EmissionLimit(p)
+end-do
+
+forall (g in Generators) do
+  TimeCS(g) := Modes(g) <= GeneratingHoursLimit(g)
+end-do
+
+TotalEnergy := sum(g in Generators)Modes(g)*Output(g)
+DemandCS := TotalEnergy >= EnergyDemand
+
+! Minimize the objective i.e. minimize total costs
+minimise(TotalCost)
+
+! Write out results neatly
+writeln
+forall(g in Generators) do
+  writeln("The power station ", g, " should be run for ", getsol(Modes(g)), " hours per week.")
+end-do
+writeln
+forall(p in Pollutants) do
+  EmissionSlack(p) := getslack(EmissionCS(p))
+  if EmissionSlack(p) = 0 then
+    EmissionFP(p) := getdual(EmissionCS(p))
+    writeln("The emission constraint for ", p, " is met.")
+    writeln("Increasing emission by one unit/week would decrease cost by: £", -EmissionFP(p), ".")
+  else
+    writeln("Emission constraint for ", p, " is not met.")
+  end-if
+end-do
+writeln
+forall(g in Generators) do
+  TimeSlack(g) := getslack(TimeCS(g))
+  if TimeSlack(g) = 0 then
+    TimeFP(g) := getdual(TimeCS(g))
+    writeln("The time constraint for ", g, " is met.")
+    writeln("Increasing time by one hr/week would decrease cost by: £", -TimeFP(g), ".")
+  else
+    writeln("Time constraint for ", g, " is not met.")
+  end-if
+end-do
+writeln
+writeln("Decreasing the demand by one unit per week will decrease the total costs by £", getdual(DemandCS), ".")
+
+! Write out objective value
+writeln
+writeln("The total cost is £", getobjval, " per week.")
+
+! Export model into appropriate format for reading into excel
+fopen("PowerGeneration.csv", F_OUTPUT)
+  writeln("Power Station", "," , "Hours per Week")
+  forall (g in Generators) do
+    writeln(g, ",", getsol(Modes(g)))
+  end-do
+  writeln
+  writeln("Total Weekly Cost", ",", getobjval)
+  writeln
+  step := 1.0
+  writeln("Percent of Original Emission", ",", "Total Weekly Cost")
+  repeat
+    TotalCost := sum(g in Generators)Modes(g)*Cost(g)
+    forall(p in Pollutants) do
+      Emission(p) := sum(g in Generators)Modes(g)*Emissions(p, g)
+      NewEmissionsLimit(p) := EmissionLimit(p) * step
+      EmissionCS(p) := Emission(p) <= NewEmissionsLimit(p)
+    end-do
+    forall (g in Generators) do
+      TimeCS(g) := Modes(g) <= GeneratingHoursLimit(g)
+    end-do
+    TotalEnergy := sum(g in Generators)Modes(g)*Output(g)
+    DemandCS := TotalEnergy >= EnergyDemand
+    minimise(TotalCost)
+    writeln(step, ",", getobjval)
+    step -= 0.1
+  until step < 0
+fclose(F_OUTPUT)
+end-model
