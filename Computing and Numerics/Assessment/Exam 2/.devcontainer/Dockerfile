@@ -1,0 +1,1 @@
+FROM ghcr.io/cnu-24/cnu-base:main
