@@ -33,7 +33,7 @@ This repository contains my coursework and projects completed during my studies 
   - Gaussian elimination and curve fitting
   - Root-finding methods such as Newton's method
 - **Projects**:
-  - **Numerical Methods Implementation**: Wrote programs in MATLAB to perform numerical computations and analyze mathematical phenomena, enhancing skills in both programming and mathematical problem-solving.
+  - **Numerical Methods Implementation**: Wrote programs in python to perform numerical computations and analyze mathematical phenomena, enhancing skills in both programming and mathematical problem-solving.
 
 ## Strength of the University of Edinburgh
 
